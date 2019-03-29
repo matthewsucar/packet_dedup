@@ -7,13 +7,13 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/pcapgo"
-	//"encoding/hex"
+	"encoding/hex"
 	"os"
 	"bytes"
 )
 
 func main() {
-	var last []byte
+	var last gopacket.Packet
 	count := 1
 	debug := false
 
@@ -30,8 +30,17 @@ func main() {
 	source := gopacket.NewPacketSource(handle, handle.LinkType())
 	last = nil
 	for p := range source.Packets() {
-		if(bytes.Equal(p.Data(), last)) {
+		if (last == nil) {
+			last = p
+			continue
+		}
+		//log.Printf("%d\n", len(p.Data()))
+		//ignore mac addresses
+		if(bytes.Equal(p.Data()[12:], last.Data()[12:])) {
 			count++
+			if(count == 2) {
+				opcap.WritePacket(last.Metadata().CaptureInfo, last.Data())
+			}
 			opcap.WritePacket(p.Metadata().CaptureInfo, p.Data())
 		} else {
 			if (count > 1) {
@@ -42,8 +51,10 @@ func main() {
 			}
 			count = 1
 		}
-		last = p.Data()
-		//fmt.Println(hex.EncodeToString(p.Data()))
+		last = p
+		if(debug == true) {
+			fmt.Println(hex.EncodeToString(p.Data()[12:]))
+		}
 		//fmt.Println("\n\n")
 	}
 }
